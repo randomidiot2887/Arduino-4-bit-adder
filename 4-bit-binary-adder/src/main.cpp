@@ -1,4 +1,4 @@
-#include <Arduino.h>
+#include <Arduino.h> // Include for arduino default functions
 
 /*
 Initialise pinnumbers of the following components
@@ -48,11 +48,11 @@ void setup() {
   Serial.begin(9600); // Starts serial communication between Arduino and Computer, for debugging purposes
   
   // Initialising pins as inputs and outputs
-  for (int i = 4; i < 4; i++) { 
+  for (int i = 0; i < 4; i++) { 
     pinMode(binary_leds[i], OUTPUT);
     pinMode(input_buttons[i], INPUT_PULLUP);
   }
-  for (int i=3; i<3; i++) {
+  for (int i = 0; i < 3; i++) {
     pinMode(rgb_led[i], OUTPUT);
   }
   pinMode(buzzur, OUTPUT);
@@ -66,23 +66,39 @@ void setup() {
 
 }
 
-void loop() {
 
-}
 
 
 // Functions used to help interact with hardware
 //    buzzes the buzzur once
-void beep() {}
+void beep(int pwm) { // Beeps buzzur
+  /*
+  A function used to buzz a buzzur at the desired pwm frequency for 100ms exactly
+  */
+  analogWrite(buzzur, pwm);  // Activate buzzur
+  delay(100);                // Wait for 100s
+  digitalWrite(buzzur, LOW); // Deactivate buzzur; exit program
+}
+
 //    used to control leds
-void led_control(int led_no, bool stat) {}
+void led_control(int led_no, bool stat) { // Control leds
+  Serial.println("Led controlled");
+  if (stat == true) { // If the leds to turn on
+    analogWrite(led_no, (analogRead(ldr_sensor) / 4)); // Turn the led on at the brightness specified by LDR
+  }
+  else { // If the led to turn off
+    digitalWrite(led_no, LOW); // Turn the led off
+  }
+}
 
 //    Halt and wait until buttons ae released
 void wait() { // Used to handle button debouncing (repeatedly checks until the buttons are released, then exits function and returns back to the regular)
+  Serial.println("Debounce Triggerd");
   while ((digitalRead(binary_leds[0]) == LOW) || (digitalRead(binary_leds[1]) == LOW) || (digitalRead(binary_leds[2]) == LOW) || (digitalRead(binary_leds[3]) == LOW) || (digitalRead(confirm_button) == LOW)) {
     if ((digitalRead(binary_leds[0]) == HIGH) && (digitalRead(binary_leds[1]) == HIGH) && (digitalRead(binary_leds[2]) == HIGH) && (digitalRead(binary_leds[3]) == HIGH) && (digitalRead(confirm_button) == HIGH)) {
       return; // Returns back to regular code
-  }
+        }
+    }
 }
 
 
@@ -109,6 +125,7 @@ void input_num(int regno) {
 }
 
 void calculate_num() {    // Used to calculate sum of the registers.
+  Serial.println("Calculation begin");
   int carry = 0;                                            // Set the initial carry value to 0
   for (int i=3; i>= 0; i--) {                               // Repeats for each digit in the registers
     int sum = (registers[0][i] + registers[1][i]) + carry;  // Finds the sum of all the values in register
@@ -129,7 +146,7 @@ void calculate_num() {    // Used to calculate sum of the registers.
       carry = 1;              // And set carry value to 1 as a number is being carried over
     }
     else {
-      Serial.println("An Unexpected error has occured, please look into this");
+      Serial.println("An Unexpected error has occured, please look into this [CALCULATE_NUM]");
     }
   }
   if (carry != 0) {                                       // If the carry value is not 0 (means the number doesnt fit withn a 4 bit register)
@@ -138,12 +155,55 @@ void calculate_num() {    // Used to calculate sum of the registers.
 }
 
 void display_num() {        // For displaying the sum on the leds
-  for (int i=0; i < 4; i++) {             // Repeats for each led in the display
-    if (registers[2][i] == 1) {           // If the register slot is 1
-      led_control(binary_leds[i], true);  // Turn the corrosponding led on
-    }
-    else {                                // If the register slot is 0
-      led_control(binary_leds[i], false); // Turn the corrosponding led off
+  Serial.println("Displaying number");
+  if (overflow == false) {
+    for (int i=0; i < 4; i++) {             // Repeats for each led in the display
+      if (registers[2][i] == 1) {           // If the register slot is 1
+        led_control(binary_leds[i], true);  // Turn the corrosponding led on
+      }
+      else {                                // If the register slot is 0
+        led_control(binary_leds[i], false); // Turn the corrosponding led off
+      }
     }
   }
+  else if (overflow == true) {
+    for (int i=0; i < 10; i++) {beep(100);} // Beeps 10 times to let user know of overflow error
+    Serial.println("Overflow error has been detected");
+  }
+}
+
+void setRGB(String color) { // Used to set the color of the RGB LED
+  if (color == "red") { // If you want it set to Red
+    digitalWrite(rgb_led[0], HIGH);
+    digitalWrite(rgb_led[1], LOW);
+    digitalWrite(rgb_led[2], LOW);
+  }
+  else if (color == "green") { // If you want it set to Green
+    digitalWrite(rgb_led[0], LOW);
+    digitalWrite(rgb_led[1], HIGH);
+    digitalWrite(rgb_led[2], LOW);
+  }
+  else if (color == "blue") { // If you want it set to Blue
+    digitalWrite(rgb_led[0], LOW);
+    digitalWrite(rgb_led[1], LOW);
+    digitalWrite(rgb_led[2], HIGH);
+  }
+  else { // Else (if unexpected scp suspect spotted :-)  )
+    Serial.println("An invalid color option was enterd, ERROR OCCURED [setRGB]");
+  }
+}
+
+void loop() { // Handles mainloop of all the functions
+  setRGB("red");
+  beep(255);
+  input_num(0);
+  setRGB("green");
+  beep(255);
+  input_num(1);
+  beep(255);
+  calculate_num();
+  setRGB("blue");
+  beep(255);
+  display_num();
+  delay(10000);
 }
